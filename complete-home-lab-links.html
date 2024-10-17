@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Lab Links</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2c3e50;
+            --background-color: #ecf0f1;
+            --card-background: #ffffff;
+            --text-color: #333333;
+            --hover-color: #2980b9;
+            --failure-color: #e74c3c;
+            --timeout-color: #f39c12;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: var(--card-background);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: var(--secondary-color);
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2em;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+        }
+        .server-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            padding: 0;
+        }
+        .server-item {
+            background-color: var(--card-background);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+        .server-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .server-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .server-link:hover {
+            color: var(--hover-color);
+        }
+        .server-type {
+            font-size: 0.9em;
+            color: var(--secondary-color);
+            margin-bottom: 10px;
+        }
+        .chart-container {
+            width: 100%;
+            position: relative;
+        }
+        .status-indicator {
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .status-ok { color: var(--primary-color); }
+        .status-failure { color: var(--failure-color); }
+        .status-timeout { color: var(--timeout-color); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Home Lab Links</h1>
+        <div id="server-list" class="server-list"></div>
+    </div>
+
+    <script>
+        // Configuration variables
+        const PING_INTERVAL = 30000; // 30 seconds in milliseconds
+        const PING_TIMEOUT = 60000;  // 60 seconds in milliseconds
+        const CHART_HEIGHT = 150;
+
+        const servers = [
+            { name: "ILO 360DL", url: "https://192.168.1.21", type: "ILO" },
+            { name: "ILO ML110", url: "https://192.168.86.251", type: "ILO" },
+            { name: "Virtualmin 360DL", url: "https://192.168.86.19:10000", type: "Virtualmin" },
+            { name: "Virtualmin Cloud Server", url: "https://129.153.85.210:10000", type: "Virtualmin" },
+            { name: "Proxmox 360DL", url: "https://192.168.86.4:8006", type: "Proxmox" },
+            { name: "Proxmox ML110", url: "https://192.168.86.18:8006", type: "Proxmox" },
+            { name: "Local Website 360DL", url: "https://wsck694.com", type: "Website" },
+            { name: "Cloud Website", url: "https://vonwallace.com", type: "Website" },
+            { name: "Unifi Site Manager", url: "https://unifi.ui.com", type: "Network" },
+            { name: "Plex Website", url: "https://plex.tv", type: "Plex" }
+        ];
+
+        function createServerItem(server) {
+            const item = document.createElement('div');
+            item.className = 'server-item';
+            item.innerHTML = `
+                <a href="${server.url}" target="_blank" class="server-link">
+                    ${server.name}
+                </a>
+                <span class="server-type">${server.type}</span>
+                <div class="chart-container" style="height: ${CHART_HEIGHT}px;">
+                    <canvas></canvas>
+                </div>
+                <div class="status-indicator"></div>
+            `;
+            return item;
+        }
+
+        function initChart(canvas) {
+            return new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Response Time (ms)',
+                        data: [],
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1,
+                        pointBackgroundColor: []
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1000,
+                            ticks: {
+                                stepSize: 200,
+                                font: {
+                                    size: 10
+                                }
+                            }
+                        },
+                        x: {
+                            display: false
+                        }
+                    },
+                    elements: {
+                        point: {
+                            radius: 4
+                        }
+                    }
+                }
+            });
+        }
+
+        async function pingServer(url) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), PING_TIMEOUT);
+
+            try {
+                const start = performance.now();
+                const response = await fetch(url, {
+                    mode: 'no-cors',
+                    cache: 'no-store',
+                    signal: controller.signal
+                });
+                const end = performance.now();
+                clearTimeout(timeoutId);
+                return { status: 'ok', value: Math.round(end - start) };
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    return { status: 'timeout', value: null };
+                } else {
+                    return { status: 'failure', value: null };
+                }
+            }
+        }
+
+        function updateChart(chart, statusIndicator, server) {
+            pingServer(server.url).then(pingResult => {
+                const newLabel = new Date().toLocaleTimeString();
+                
+                chart.data.labels.push(newLabel);
+                chart.data.datasets[0].data.push(pingResult.value);
+
+                // Set point color based on status
+                let pointColor;
+                let statusText;
+                switch (pingResult.status) {
+                    case 'failure':
+                        pointColor = 'rgb(231, 76, 60)'; // Red
+                        statusText = 'Failure';
+                        break;
+                    case 'timeout':
+                        pointColor = 'rgb(243, 156, 18)'; // Orange
+                        statusText = 'Timeout';
+                        break;
+                    default:
+                        pointColor = 'rgb(75, 192, 192)'; // Default blue
+                        statusText = `OK (${pingResult.value}ms)`;
+                }
+                chart.data.datasets[0].pointBackgroundColor.push(pointColor);
+
+                // Update status indicator
+                statusIndicator.textContent = `Status: ${statusText}`;
+                statusIndicator.className = `status-indicator status-${pingResult.status}`;
+
+                if (chart.data.labels.length > 10) {
+                    chart.data.labels.shift();
+                    chart.data.datasets[0].data.shift();
+                    chart.data.datasets[0].pointBackgroundColor.shift();
+                }
+
+                chart.update();
+            });
+        }
+
+        function startMonitoring(charts) {
+            // Perform initial ping for all servers
+            charts.forEach(({ chart, statusIndicator, server }) => updateChart(chart, statusIndicator, server));
+
+            // Set up interval for subsequent pings
+            setInterval(() => {
+                charts.forEach(({ chart, statusIndicator, server }) => updateChart(chart, statusIndicator, server));
+            }, PING_INTERVAL);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const serverList = document.getElementById('server-list');
+            const charts = [];
+
+            servers.forEach(server => {
+                const item = createServerItem(server);
+                serverList.appendChild(item);
+                const canvas = item.querySelector('canvas');
+                const chart = initChart(canvas);
+                const statusIndicator = item.querySelector('.status-indicator');
+                charts.push({ chart, statusIndicator, server });
+            });
+
+            // Start monitoring immediately
+            startMonitoring(charts);
+        });
+    </script>
+</body>
+</html>
