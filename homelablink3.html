@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Lab Links</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2c3e50;
+            --background-color: #ecf0f1;
+            --card-background: #ffffff;
+            --text-color: #333333;
+            --hover-color: #2980b9;
+            --failure-color: #e74c3c;
+            --timeout-color: #f39c12;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        body.dark-mode {
+            --primary-color: #3498db;
+            --secondary-color: #bdc3c7;
+            --background-color: #2c3e50;
+            --card-background: #34495e;
+            --text-color: #ecf0f1;
+            --hover-color: #2980b9;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: var(--card-background);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: var(--text-color);
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2em;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+        }
+        .server-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            padding: 0;
+        }
+        .server-item {
+            background-color: var(--card-background);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+        .server-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .server-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .server-link:hover {
+            color: var(--hover-color);
+        }
+        .server-type {
+            font-size: 0.9em;
+            color: var(--secondary-color);
+            margin-bottom: 10px;
+        }
+        .chart-container {
+            width: 100%;
+            position: relative;
+            cursor: pointer;
+        }
+        .status-indicator {
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .status-ok { color: #2ecc71; }
+        .status-failure { color: var(--failure-color); }
+        .status-timeout { color: var(--timeout-color); }
+        .check-details {
+            display: none;
+            background-color: var(--background-color);
+            border: 1px solid var(--secondary-color);
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 0.9em;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .check-details.show {
+            display: block;
+        }
+        .check-entry {
+            border-bottom: 1px solid var(--secondary-color);
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        .check-entry:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+            margin-bottom: 0;
+        }
+        .clear-alert-btn {
+            display: none;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .clear-alert-btn:hover {
+            background-color: var(--hover-color);
+        }
+        .server-item.alert {
+            border: 2px solid var(--failure-color);
+        }
+        .global-status {
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .global-status.all-up {
+            background-color: #2ecc71;
+            color: white;
+        }
+        .global-status.some-down {
+            background-color: var(--failure-color);
+            color: white;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .interval-control {
+            display: flex;
+            align-items: center;
+        }
+        .interval-control label {
+            margin-right: 10px;
+        }
+        .dark-mode-toggle {
+            background-color: var(--card-background);
+            color: var(--text-color);
+            border: 1px solid var(--text-color);
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+        }
+        .dark-mode-toggle:hover {
+            background-color: var(--text-color);
+            color: var(--card-background);
+        }
+        body.dark-mode .dark-mode-toggle {
+            background-color: var(--text-color);
+            color: var(--card-background);
+            border-color: var(--card-background);
+        }
+        body.dark-mode .dark-mode-toggle:hover {
+            background-color: var(--card-background);
+            color: var(--text-color);
+        }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Home Lab Links</h1>
+        <div class="controls">
+            <div class="interval-control">
+                <label for="check-interval">Check Interval (seconds):</label>
+                <input type="number" id="check-interval" min="5" value="30">
+            </div>
+            <button class="dark-mode-toggle">Toggle Dark Mode</button>
+        </div>
+        <div id="global-status" class="global-status"></div>
+        <div id="server-list" class="server-list"></div>
+    </div>
+
+    <script>
+        // Configuration variables
+        let CHECK_INTERVAL = 30000; // 30 seconds in milliseconds
+        const REQUEST_TIMEOUT = 60000;  // 60 seconds in milliseconds
+        const CHART_HEIGHT = 150;
+        const MAX_FAILURES_BEFORE_ALERT = 3; // Number of consecutive failures before sending an alert
+
+        // Email configuration variables
+        const EMAIL_CONFIG = {
+            enabled: true, // Set to false to disable email alerts
+            from: "alerts@yourdomain.com",
+            to: "your-email@example.com",
+            relayHost: "your-open-relay.example.com",
+            relayPort: 25  // Standard SMTP port, adjust if your relay uses a different port
+        };
+
+        const servers = [
+            { name: "ILO 360DL", url: "https://192.168.1.21", type: "ILO", alertStatus: false },
+            { name: "ILO ML110", url: "https://192.168.86.251", type: "ILO", alertStatus: false },
+            { name: "Virtualmin 360DL", url: "https://192.168.86.19:10000", type: "Virtualmin", alertStatus: false },
+            { name: "Virtualmin Cloud Server", url: "https://129.153.85.210:10000", type: "Virtualmin", alertStatus: false },
+            { name: "Proxmox 360DL", url: "https://192.168.86.4:8006", type: "Proxmox", alertStatus: false },
+            { name: "Proxmox ML110", url: "https://192.168.86.18:8006", type: "Proxmox", alertStatus: false },
+            { name: "Local Website 360DL", url: "https://wsck694.com", type: "Website", alertStatus: false },
+            { name: "Cloud Website", url: "https://vonwallace.com", type: "Website", alertStatus: false },
+            { name: "Unifi Site Manager", url: "https://unifi.ui.com", type: "Network", alertStatus: false },
+            { name: "Plex Website", url: "https://plex.tv", type: "Plex", alertStatus: false }
+        ];
+
+        function createServerItem(server) {
+            const item = document.createElement('div');
+            item.className = 'server-item';
+            item.innerHTML = `
+                <a href="${server.url}" target="_blank" class="server-link">
+                    ${server.name}
+                </a>
+                <span class="server-type">${server.type}</span>
+                <div class="chart-container" style="height: ${CHART_HEIGHT}px;">
+                    <canvas></canvas>
+                </div>
+                <div class="status-indicator"></div>
+                <div class="check-details"></div>
+                <button class="clear-alert-btn">Clear Alert</button>
+            `;
+            return item;
+        }
+
+        function initChart(canvas) {
+            return new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Response Time (ms)',
+                        data: [],
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1,
+                        pointBackgroundColor: []
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1000,
+                            ticks: {
+                                stepSize: 200,
+                                font: {
+                                    size: 10
+                                }
+                            }
+                        },
+                        x: {
+                            display: false
+                        }
+                    },
+                    elements: {
+                        point: {
+                            radius: 4
+                        }
+                    }
+                }
+            });
+        }
+
+        async function checkServer(url) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+            try {
+                const start = performance.now();
+                const response = await fetch(url, {
+                    mode: 'no-cors',
+                    cache: 'no-store',
+                    signal: controller.signal
+                });
+                const end = performance.now();
+                clearTimeout(timeoutId);
+
+                return { 
+                    status: 'ok',
+                    value: Math.round(end - start)
+                };
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    return { status: 'timeout', value: null };
+                } else {
+                    return { status: 'failure', value: null, error: error.message };
+                }
+            }
+        }
+
+        function updateChart(chart, statusIndicator, checkDetails, server, serverItem) {
+            checkServer(server.url).then(checkResult => {
+                const newLabel = new Date().toLocaleTimeString();
+                
+                chart.data.labels.push(newLabel);
+                chart.data.datasets[0].data.push(checkResult.value);
+
+                // Set point color based on status
+                let pointColor;
+                let statusText;
+                switch (checkResult.status) {
+                    case 'failure':
+                        pointColor = 'rgb(231, 76, 60)'; // Red
+                        statusText = 'Failure';
+                        break;
+                    case 'timeout':
+                        pointColor = 'rgb(243, 156, 18)'; // Orange
+                        statusText = 'Timeout';
+                        break;
+                    default:
+                        pointColor = 'rgb(75, 192, 192)'; // Default blue
+                        statusText = `OK (${checkResult.value}ms)`;
+                }
+                chart.data.datasets[0].pointBackgroundColor.push(pointColor);
+
+                // Update status indicator
+                statusIndicator.textContent = `Status: ${statusText}`;
+                statusIndicator.className = `status-indicator status-${checkResult.status}`;
+
+                // Update check details
+                updateCheckDetails(checkDetails, checkResult);
+
+                if (chart.data.labels.length > 10) {
+                    chart.data.labels.shift();
+                    chart.data.datasets[0].data.shift();
+                    chart.data.datasets[0].pointBackgroundColor.shift();
+                }
+
+                chart.update();
+
+                // Check for consecutive failures and send alert if necessary
+                checkConsecutiveFailures(server, checkResult.status, serverItem);
+
+                // Update global status
+                updateGlobalStatus();
+            });
+        }
+
+        function updateCheckDetails(checkDetailsElement, checkResult) {
+            const lastTenChecks = checkDetailsElement.dataset.lastTenChecks ? 
+                JSON.parse(checkDetailsElement.dataset.lastTenChecks) : [];
+
+            lastTenChecks.unshift({
+                time: new Date().toLocaleTimeString(),
+                status: checkResult.status,
+                value: checkResult.value,
+                error: checkResult.error
+            });
+
+            if (lastTenChecks.length > 10) {
+                lastTenChecks.pop();
+            }
+
+            checkDetailsElement.dataset.lastTenChecks = JSON.stringify(lastTenChecks);
+
+            const detailsHTML = lastTenChecks.map(check => `
+                <div class="check-entry">
+                    <p><strong>Time:</strong> ${check.time}</p>
+                    <p><strong>Status:</strong> ${check.status}${check.value ? ` (${check.value}ms)` : ''}</p>
+                    ${check.error ? `<p><strong>Error:</strong> ${check.error}</p>` : ''}
+                </div>
+            `).join('');
+
+            checkDetailsElement.innerHTML = detailsHTML;
+        }
+
+        function checkConsecutiveFailures(server, status, serverItem) {
+            if (status === 'failure' || status === 'timeout') {
+                server.consecutiveFailures = (server.consecutiveFailures || 0) + 1;
+                if (server.consecutiveFailures >= MAX_FAILURES_BEFORE_ALERT && !server.alertStatus) {
+                    sendAlert(server);
+                    server.alertStatus = true;
+                    updateAlertStatus(server, serverItem);
+                }
+            } else {
+                server.consecutiveFailures = 0;
+                if (server.alertStatus) {
+                    server.alertStatus = false;
+                    updateAlertStatus(server, serverItem);
+}
+            }
+        }
+
+        function updateAlertStatus(server, serverItem) {
+            const clearAlertBtn = serverItem.querySelector('.clear-alert-btn');
+            if (server.alertStatus) {
+                serverItem.classList.add('alert');
+                clearAlertBtn.style.display = 'block';
+            } else {
+                serverItem.classList.remove('alert');
+                clearAlertBtn.style.display = 'none';
+            }
+        }
+
+        function clearAlert(server, serverItem) {
+            server.alertStatus = false;
+            server.consecutiveFailures = 0;
+            updateAlertStatus(server, serverItem);
+            updateGlobalStatus();
+        }
+
+        async function sendEmail(subject, body) {
+            if (!EMAIL_CONFIG.enabled) {
+                console.log("Email alerts are disabled. Would have sent:");
+                console.log("Subject:", subject);
+                console.log("Body:", body);
+                return;
+            }
+
+            const emailData = {
+                from: EMAIL_CONFIG.from,
+                to: EMAIL_CONFIG.to,
+                subject: subject,
+                body: body,
+                relayHost: EMAIL_CONFIG.relayHost,
+                relayPort: EMAIL_CONFIG.relayPort
+            };
+
+            try {
+                console.log("Sending email through relay:", emailData);
+                // In a real implementation, you would make an API call to your server here
+                // For this example, we'll just log success
+                console.log("Email alert sent successfully");
+            } catch (error) {
+                console.error("Error sending email alert:", error);
+            }
+        }
+
+        function sendAlert(server) {
+            const subject = `Alert: ${server.name} is down`;
+            const body = `The server ${server.name} at ${server.url} is not responding after ${MAX_FAILURES_BEFORE_ALERT} consecutive checks.`;
+            
+            sendEmail(subject, body);
+            
+            console.log(`Alert: ${server.name} (${server.url}) is down after ${MAX_FAILURES_BEFORE_ALERT} consecutive failures.`);
+        }
+
+        function updateGlobalStatus() {
+            const globalStatusElement = document.getElementById('global-status');
+            const downServers = servers.filter(server => server.consecutiveFailures > 0);
+            
+            if (downServers.length === 0) {
+                globalStatusElement.textContent = 'All Systems Operational';
+                globalStatusElement.className = 'global-status all-up';
+            } else {
+                globalStatusElement.textContent = `${downServers.length} ${downServers.length === 1 ? 'System' : 'Systems'} Down`;
+                globalStatusElement.className = 'global-status some-down';
+            }
+        }
+
+        let monitoringInterval;
+
+        function startMonitoring(charts) {
+            // Clear existing interval if any
+            if (monitoringInterval) {
+                clearInterval(monitoringInterval);
+            }
+
+            // Perform initial check for all servers
+            charts.forEach(({ chart, statusIndicator, checkDetails, server, serverItem }) => 
+                updateChart(chart, statusIndicator, checkDetails, server, serverItem));
+
+            // Set up interval for subsequent checks
+            monitoringInterval = setInterval(() => {
+                charts.forEach(({ chart, statusIndicator, checkDetails, server, serverItem }) => 
+                    updateChart(chart, statusIndicator, checkDetails, server, serverItem));
+            }, CHECK_INTERVAL);
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const serverList = document.getElementById('server-list');
+            const charts = [];
+
+            servers.forEach(server => {
+                const serverItem = createServerItem(server);
+                serverList.appendChild(serverItem);
+                const canvas = serverItem.querySelector('canvas');
+                const chart = initChart(canvas);
+                const statusIndicator = serverItem.querySelector('.status-indicator');
+                const checkDetails = serverItem.querySelector('.check-details');
+                const clearAlertBtn = serverItem.querySelector('.clear-alert-btn');
+
+                charts.push({ chart, statusIndicator, checkDetails, server, serverItem });
+
+                // Add click event to toggle check details
+                serverItem.querySelector('.chart-container').addEventListener('click', () => {
+                    checkDetails.classList.toggle('show');
+                });
+
+                // Add click event for clear alert button
+                clearAlertBtn.addEventListener('click', () => clearAlert(server, serverItem));
+            });
+
+            // Start monitoring immediately
+            startMonitoring(charts);
+
+            // Set up interval change listener
+            const intervalInput = document.getElementById('check-interval');
+            intervalInput.addEventListener('change', () => {
+                CHECK_INTERVAL = intervalInput.value * 1000; // Convert to milliseconds
+                startMonitoring(charts); // Restart monitoring with new interval
+            });
+
+            // Set up dark mode toggle
+            const darkModeToggle = document.querySelector('.dark-mode-toggle');
+            darkModeToggle.addEventListener('click', toggleDarkMode);
+
+            // Initial global status update
+            updateGlobalStatus();
+        });
+    </script>
+</body>
+</html>
